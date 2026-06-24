@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PerfectMile Action Tracker</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:"Amazon Ember",-apple-system,BlinkMacSystemFont,
+           "Segoe UI",Roboto,sans-serif; background:#f5f7fa; color:#232f3e; }
+    .header { background:#232f3e; color:white; padding:16px 32px;
+              display:flex; justify-content:space-between; align-items:center;
+              box-shadow:0 2px 8px rgba(0,0,0,.2); }
+    .header h1 { font-size:22px; font-weight:700; }
+    .header h1 span { color:#ff9900; }
+    .header .refresh-btn { background:#ff9900; color:#232f3e; border:none;
+      padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer; }
+    .filters-bar { background:white; padding:16px 32px;
+      border-bottom:1px solid #e0e0e0;
+      display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    .filter-group { display:flex; flex-direction:column; gap:4px; }
+    .filter-group label { font-size:11px; font-weight:600;
+      text-transform:uppercase; color:#666; }
+    .filter-group select, .filter-group input { padding:8px 12px;
+      border:1px solid #ccc; border-radius:4px;
+      font-size:13px; min-width:140px; }
+    .site-multi-select { position:relative; min-width:200px; }
+    .site-multi-select .selected-sites { padding:8px 12px;
+      border:1px solid #ccc; border-radius:4px;
+      font-size:13px; cursor:pointer; background:white; min-height:36px; }
+    .site-multi-select .dropdown { display:none; position:absolute;
+      top:100%; left:0; right:0; background:white;
+      border:1px solid #ccc; border-radius:4px; max-height:200px;
+      overflow-y:auto; z-index:100;
+      box-shadow:0 4px 12px rgba(0,0,0,.15); }
+    .site-multi-select .dropdown.open { display:block; }
+    .site-multi-select .dropdown label { display:block; padding:8px 12px;
+      cursor:pointer; font-size:13px; }
+    .site-multi-select .dropdown label:hover { background:#f0f0f0; }
+    .stats-bar { display:flex; gap:16px; padding:16px 32px; flex-wrap:wrap; }
+    .stat-card { background:white; border-radius:8px; padding:16px 24px;
+                 flex:1; min-width:150px;
+                 box-shadow:0 1px 4px rgba(0,0,0,.08); text-align:center; }
+    .stat-card .stat-value { font-size:28px; font-weight:700; }
+    .stat-card .stat-label { font-size:12px; color:#666; margin-top:4px; }
+    .stat-card.overdue     .stat-value { color:#FF4444; }
+    .stat-card.in-progress .stat-value { color:#FFA500; }
+    .stat-card.complete    .stat-value { color:#4CAF50; }
+    .stat-card.open        .stat-value { color:#2196F3; }
+    .content { padding:16px 32px; }
+    .actions-table-container { background:white; border-radius:8px;
+      box-shadow:0 1px 4px rgba(0,0,0,.08); overflow-x:auto; }
+    .table-header { display:flex; justify-content:space-between;
+      align-items:center; padding:16px 20px; border-bottom:1px solid #eee; }
+    .table-header h2 { font-size:16px; }
+    .add-action-btn { background:#ff9900; color:#232f3e; border:none;
+      padding:10px 20px; border-radius:4px;
+      font-weight:bold; cursor:pointer; font-size:13px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    thead th { background:#232f3e; color:white; padding:12px 10px;
+               text-align:left; font-size:11px; text-transform:uppercase;
+               letter-spacing:.5px; white-space:nowrap; }
+    tbody tr { border-bottom:1px solid #f0f0f0; }
+    tbody tr:hover { background:#f9f9f9; }
+    tbody td { padding:10px; vertical-align:middle; }
+    .status-badge { display:inline-block; padding:4px 10px;
+                    border-radius:12px; font-size:11px; font-weight:600; }
+    .status-overdue     { background:#FFEBEE; color:#C62828; }
+    .status-open        { background:#E3F2FD; color:#1565C0; }
+    .status-in-progress { background:#FFF3E0; color:#E65100; }
+    .status-complete    { background:#E8F5E9; color:#2E7D32; }
+    .overdue-row  { border-left:4px solid #FF4444; }
+    .wow-positive { color:#C62828; font-weight:600; }
+    .wow-negative { color:#2E7D32; font-weight:600; }
+    .wow-neutral  { color:#666; }
+    .modal-overlay { display:none; position:fixed;
+      top:0; left:0; right:0; bottom:0;
+      background:rgba(0,0,0,.5); z-index:1000;
+      justify-content:center; align-items:center; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:white; border-radius:12px; padding:32px;
+             width:90%; max-width:600px; max-height:90vh; overflow-y:auto; }
+    .modal h2 { margin-bottom:20px; }
+    .form-group { margin-bottom:16px; }
+    .form-group label { display:block; font-size:12px; font-weight:600;
+                        margin-bottom:4px; color:#444; }
+    .form-group input,.form-group select,.form-group textarea {
+      width:100%; padding:10px; border:1px solid #ccc;
+      border-radius:4px; font-size:14px; }
+    .form-group textarea { min-height:80px; resize:vertical; }
+    .form-actions { display:flex; gap:12px; margin-top:24px; }
+    .form-actions button { padding:10px 24px; border:none;
+      border-radius:4px; font-weight:bold; cursor:pointer; font-size:14px; }
+    .btn-submit { background:#ff9900; color:#232f3e; }
+    .btn-cancel { background:#eee; color:#333; }
+    .empty-state { text-align:center; padding:60px 20px; color:#999; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>&#x1F4CB; PerfectMile <span>Action Tracker</span></h1>
+    <button class="refresh-btn" onclick="loadActions()">&#x21BB; Refresh</button>
+  </div>
+
+  <div class="filters-bar">
+    <div class="filter-group">
+      <label>Sites (Multi-Select)</label>
+      <div class="site-multi-select" id="siteSelector">
+        <div class="selected-sites" onclick="toggleSiteDropdown()">All Sites</div>
+        <div class="dropdown" id="siteDropdown"></div>
+      </div>
+    </div>
+    <div class="filter-group">
+      <label>Status</label>
+      <select id="filterStatus" onchange="loadActions()">
+        <option value="All">All</option>
+        <option value="Open">Open</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Overdue">Overdue</option>
+        <option value="Complete">Complete</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Owner</label>
+      <input type="text" id="filterOwner" placeholder="Filter by owner..."
+             oninput="debounceLoad()">
+    </div>
+    <div class="filter-group">
+      <label>Metric</label>
+      <select id="filterMetric" onchange="loadActions()">
+        <option value="All">All Metrics</option>
+        <optgroup label="Quality">
+          <option>Missort DPMO</option>
+          <option>Unresolved Failed Moves DPMO</option>
+          <option>Close/Print/Move DPMO</option>
+          <option>ATLAS CLFM Compliance</option>
+          <option>ATLAS CLFM Effectiveness</option>
+        </optgroup>
+        <optgroup label="Cost">
+          <option>Actual NSNC</option>
+          <option>All in TPH</option>
+          <option>CB Actual Rate</option>
+          <option>GE Total Score</option>
+        </optgroup>
+        <optgroup label="Delivery">
+          <option>Mix-Adj DEA%</option>
+          <option>Mix-Adj CPT Perf%</option>
+          <option>Concessions DPMO</option>
+        </optgroup>
+        <optgroup label="Utilization">
+          <option>CCE Success Rate</option>
+          <option>Wasted Cubic Capacity</option>
+        </optgroup>
+      </select>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card overdue">
+      <div class="stat-value" id="statOverdue">0</div>
+      <div class="stat-label">OVERDUE</div>
+    </div>
+    <div class="stat-card open">
+      <div class="stat-value" id="statOpen">0</div>
+      <div class="stat-label">OPEN</div>
+    </div>
+    <div class="stat-card in-progress">
+      <div class="stat-value" id="statInProgress">0</div>
+      <div class="stat-label">IN PROGRESS</div>
+    </div>
+    <div class="stat-card complete">
+      <div class="stat-value" id="statComplete">0</div>
+      <div class="stat-label">COMPLETE</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="actions-table-container">
+      <div class="table-header">
+        <h2>Action Items</h2>
+        <button class="add-action-btn" onclick="openAddModal()">+ Add Action</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Site</th><th>Metric</th><th>Owner</th><th>Action</th>
+          <th>Countermeasure</th><th>Status</th><th>Due Date</th>
+          <th>Last Updated</th><th>WoW Impact</th>
+        </tr></thead>
+        <tbody id="actionsBody">
+          <tr><td colspan="9" class="empty-state">
+            <p>Loading actions...</p>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add Action Modal -->
+  <div class="modal-overlay" id="addModal">
+    <div class="modal">
+      <h2>Add New Action</h2>
+      <div class="form-group">
+        <label>Site *</label>
+        <input type="text" id="formSite" placeholder="e.g., AGS5, DAL9, TUL5...">
+      </div>
+      <div class="form-group">
+        <label>Metric *</label>
+        <select id="formMetric">
+          <optgroup label="Quality">
+            <option>Missort DPMO</option>
+            <option>Unresolved Failed Moves DPMO</option>
+            <option>Close/Print/Move DPMO</option>
+            <option>ATLAS CLFM Compliance</option>
+          </optgroup>
+          <optgroup label="Cost">
+            <option>Actual NSNC</option>
+            <option>All in TPH</option>
+            <option>CB Actual Rate</option>
+          </optgroup>
+          <optgroup label="Delivery">
+            <option>Mix-Adj DEA%</option>
+            <option>Mix-Adj CPT Perf%</option>
+          </optgroup>
+          <optgroup label="Utilization">
+            <option>CCE Success Rate</option>
+            <option>Wasted Cubic Capacity</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Owner *</label>
+        <input type="text" id="formOwner" placeholder="e.g., your login@">
+      </div>
+      <div class="form-group">
+        <label>Action Description *</label>
+        <textarea id="formDescription"
+          placeholder="Describe the action or countermeasure..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Root Cause Category</label>
+        <select id="formRootCause">
+          <option value="">-- Optional --</option>
+          <option>Associate Behavior</option>
+          <option>MHE / Equipment</option>
+          <option>Process Gap</option>
+          <option>Training / Knowledge</option>
+          <option>System / Tool Failure</option>
+          <option>Volume / Capacity</option>
+          <option>Staffing / Labor</option>
+          <option>Configuration Error</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Countermeasure Type</label>
+        <select id="formCountermeasure">
+          <option value="">-- Optional --</option>
+          <option>Standard Work</option>
+          <option>Mechanism</option>
+          <option>One-time Fix</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Due Date *</label>
+        <input type="date" id="formDueDate">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="formStatus">
+          <option>Open</option>
+          <option>In Progress</option>
+          <option>Complete</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="formNotes" placeholder="Additional context..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn-submit" onclick="submitAction()">Add Action</button>
+        <button class="btn-cancel" onclick="closeAddModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // PASTE YOUR DEPLOYED APPS SCRIPT URL HERE (from Step 3)
+    const APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
+
+    let allActions = [], selectedSites = [], debounceTimer = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSites(); loadActions();
+    });
+
+    async function apiCall(action, payload={}) {
+      try {
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method:'POST',
+          headers:{'Content-Type':'text/plain'},
+          body: JSON.stringify({ action, payload }) });
+        return await res.json();
+      } catch(e) {
+        console.error('API Error:',e);
+        return { error: e.message };
+      }
+    }
+
+    async function loadSites() {
+      const r = await apiCall('getSites');
+      if (r.sites) {
+        document.getElementById('siteDropdown').innerHTML =
+          r.sites.map(s =>
+            '<label><input type="checkbox" value="' + s +
+            '" onchange="updateSiteFilter()"> ' + s + '</label>'
+          ).join('');
+      }
+    }
+
+    async function loadActions() {
+      const status = document.getElementById('filterStatus').value;
+      const owner  = document.getElementById('filterOwner').value;
+      const metric = document.getElementById('filterMetric').value;
+      const r = await apiCall('getActions', {
+        sites:  selectedSites.length>0 ? selectedSites : null,
+        status: status!=='All' ? status : null,
+        owner:  owner||null });
+      if (r.actions) {
+        allActions = (metric && metric!=='All')
+          ? r.actions.filter(a => a['Metric']===metric)
+          : r.actions;
+        renderActions(allActions);
+        updateStats(allActions);
+      }
+    }
+
+    function renderActions(actions) {
+      const tbody = document.getElementById('actionsBody');
+      if (!actions.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-state">'
+          + '<p>No actions found</p></td></tr>';
+        return;
+      }
+      tbody.innerHTML = actions.map(a => {
+        const ov = a['Status']=='Overdue'||a['Overdue Flag']=='OVERDUE';
+        const sc = ov ? 'overdue' : a['Status'].toLowerCase().replace(' ','-');
+        const wc = getWoWClass(a['WoW Delta'],a['Metric']);
+        const dd = a['Due Date']
+          ? new Date(a['Due Date']).toLocaleDateString() : '-';
+        const lu = a['Date Last Updated']
+          ? new Date(a['Date Last Updated']).toLocaleDateString() : '-';
+        const rowClass = ov ? 'overdue-row' : '';
+        const statusBadge = ov ? '&#x26A0;&#xFE0F; OVERDUE' : a['Status'];
+        return '<tr class="'+rowClass+'">'
+          + '<td><strong>'+a['Site']+'</strong></td>'
+          + '<td>'+a['Metric']+'</td>'
+          + '<td>'+a['Owner']+'</td>'
+          + '<td style="max-width:250px">'+trunc(a['Action Description'],80)+'</td>'
+          + '<td>'+( a['Countermeasure Type'] || '-' )+'</td>'
+          + '<td><span class="status-badge status-'+sc+'">'+statusBadge+'</span></td>'
+          + '<td>'+dd+'</td><td>'+lu+'</td>'
+          + '<td class="'+wc+'">'+( a['WoW Delta'] || '-' )+'</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    function updateStats(a) {
+      const c = { overdue:0, open:0, inProgress:0, complete:0 };
+      a.forEach(x => {
+        if      (x['Status']=='Overdue'||x['Overdue Flag']=='OVERDUE') c.overdue++;
+        else if (x['Status']=='Open')        c.open++;
+        else if (x['Status']=='In Progress') c.inProgress++;
+        else if (x['Status']=='Complete')    c.complete++;
+      });
+      document.getElementById('statOverdue').textContent    = c.overdue;
+      document.getElementById('statOpen').textContent       = c.open;
+      document.getElementById('statInProgress').textContent = c.inProgress;
+      document.getElementById('statComplete').textContent   = c.complete;
+    }
+
+    function getWoWClass(d,m) {
+      if (!d||d=='N/A') return 'wow-neutral';
+      const higher = !m?.includes('DPMO')&&!m?.includes('Off Task')&&!m?.includes('Wasted');
+      if (d.startsWith('+')) return higher ? 'wow-negative' : 'wow-positive';
+      if (d.startsWith('-')) return higher ? 'wow-positive' : 'wow-negative';
+      return 'wow-neutral';
+    }
+    function trunc(s,n){
+      return !s?'-':s.length>n?s.substring(0,n)+'...':s;
+    }
+    function debounceLoad(){
+      clearTimeout(debounceTimer);
+      debounceTimer=setTimeout(loadActions,500);
+    }
+    function toggleSiteDropdown(){
+      document.getElementById('siteDropdown').classList.toggle('open');
+    }
+    function updateSiteFilter(){
+      const cbs = document.querySelectorAll('#siteDropdown input[type="checkbox"]');
+      selectedSites = Array.from(cbs).filter(c=>c.checked).map(c=>c.value);
+      document.querySelector('.selected-sites').textContent =
+        selectedSites.length>0 ? selectedSites.join(', ') : 'All Sites';
+      loadActions();
+    }
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.site-multi-select'))
+        document.getElementById('siteDropdown').classList.remove('open');
+    });
+    function openAddModal(){
+      document.getElementById('addModal').classList.add('open');
+    }
+    function closeAddModal(){
+      document.getElementById('addModal').classList.remove('open');
+    }
+    async function submitAction(){
+      const site  = document.getElementById('formSite').value.trim().toUpperCase();
+      const metric= document.getElementById('formMetric').value;
+      const owner = document.getElementById('formOwner').value.trim();
+      const desc  = document.getElementById('formDescription').value.trim();
+      const due   = document.getElementById('formDueDate').value;
+      if (!site||!metric||!owner||!desc||!due){
+        alert('Please fill in all required fields (*)'); return;
+      }
+      const r = await apiCall('addAction',{
+        site, metric, owner, actionDescription: desc,
+        rootCauseCategory: document.getElementById('formRootCause').value,
+        countermeasureType:document.getElementById('formCountermeasure').value,
+        dueDate: due,
+        status:  document.getElementById('formStatus').value,
+        notes:   document.getElementById('formNotes').value
+      });
+      if (r.success){
+        closeAddModal(); loadActions(); loadSites();
+        ['formSite','formOwner','formDescription','formNotes']
+          .forEach(id => { document.getElementById(id).value=''; });
+      } else {
+        alert('Failed to add action. Please try again.');
+      }
+    }
+  </script>
+</body>
+</html>
